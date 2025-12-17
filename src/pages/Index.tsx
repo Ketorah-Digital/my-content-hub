@@ -1,33 +1,49 @@
 import { useState } from "react";
-import { Sparkles, CalendarDays } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Sparkles, CalendarDays, Settings, LogOut } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import ContentGenerator from "@/components/ContentGenerator";
 import RepurposeEngine from "@/components/RepurposeEngine";
 import ContentLibrary from "@/components/ContentLibrary";
 import ContentCalendar from "@/components/ContentCalendar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 
 const Index = () => {
   const [generatedScript, setGeneratedScript] = useState<any>(null);
   const [activeTab, setActiveTab] = useState("generate");
+  const { signOut } = useAuth();
+  const navigate = useNavigate();
 
   const handleContentGenerated = (content: any) => {
     setGeneratedScript(content);
     setActiveTab("repurpose");
   };
 
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/auth");
+  };
+
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-16 items-center">
+        <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-2">
             <Sparkles className="h-6 w-6 text-primary" />
             <span className="text-xl font-semibold tracking-tight">Content Hub</span>
           </div>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" onClick={() => navigate("/settings")}>
+              <Settings className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={handleSignOut}>
+              <LogOut className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="container py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold tracking-tight">AI Content Distribution Hub</h1>

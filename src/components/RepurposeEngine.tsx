@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
-import { Loader2, Youtube, Instagram, Copy, Check, Save } from "lucide-react";
+import { Loader2, Youtube, Instagram, Copy, Check, Save, Briefcase } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface RepurposeEngineProps {
   initialScript: any;
@@ -23,6 +24,7 @@ const RepurposeEngine = ({ initialScript }: RepurposeEngineProps) => {
   const [copiedPlatform, setCopiedPlatform] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   useEffect(() => {
     if (initialScript && !repurposedContent) {
@@ -31,10 +33,11 @@ const RepurposeEngine = ({ initialScript }: RepurposeEngineProps) => {
   }, [initialScript]);
 
   const handleRepurpose = async () => {
-    if (!initialScript?.script) {
+    const scriptContent = initialScript?.script || initialScript?.content || initialScript?.body || "";
+    if (!scriptContent) {
       toast({
-        title: "No script available",
-        description: "Generate a script first, then repurpose it.",
+        title: "No content available",
+        description: "Generate content first, then repurpose it.",
         variant: "destructive",
       });
       return;
@@ -43,7 +46,11 @@ const RepurposeEngine = ({ initialScript }: RepurposeEngineProps) => {
     setIsRepurposing(true);
     try {
       const { data, error } = await supabase.functions.invoke("generate-content", {
-        body: { topic: initialScript.script, type: "repurpose" },
+        body: { 
+          topic: scriptContent, 
+          type: "repurpose",
+          contentType: initialScript?.contentType || "video"
+        },
       });
 
       if (error) throw error;
@@ -51,7 +58,7 @@ const RepurposeEngine = ({ initialScript }: RepurposeEngineProps) => {
       setRepurposedContent(data);
       toast({
         title: "Content repurposed!",
-        description: "Your script has been adapted for all platforms.",
+        description: "Your content has been adapted for all platforms.",
       });
     } catch (error: any) {
       console.error("Repurpose error:", error);
@@ -73,17 +80,24 @@ const RepurposeEngine = ({ initialScript }: RepurposeEngineProps) => {
   };
 
   const handleSaveToLibrary = async () => {
-    if (!initialScript || !repurposedContent) return;
+    if (!initialScript || !repurposedContent || !user) return;
 
     setIsSaving(true);
     try {
       const { error } = await supabase.from("content").insert({
+        user_id: user.id,
         topic: initialScript.title || "Untitled",
-        original_script: initialScript.script,
+        original_script: initialScript.script || initialScript.content || initialScript.body || "",
+        content_type: initialScript.contentType || "video",
         youtube_version: repurposedContent.youtube,
         youtube_shorts_version: repurposedContent.youtubeShorts,
         tiktok_version: repurposedContent.tiktok,
         instagram_version: repurposedContent.instagram,
+        linkedin_version: repurposedContent.linkedin,
+        blog_version: repurposedContent.blog,
+        carousel_version: repurposedContent.carousel,
+        thread_version: repurposedContent.thread,
+        newsletter_version: repurposedContent.newsletter,
         status: "ready",
       });
 
@@ -91,7 +105,7 @@ const RepurposeEngine = ({ initialScript }: RepurposeEngineProps) => {
 
       toast({
         title: "Saved to library!",
-        description: "Your content has been saved and is ready to use.",
+        description: "Your content has been saved and is ready to schedule.",
       });
     } catch (error: any) {
       console.error("Save error:", error);
@@ -110,8 +124,8 @@ const RepurposeEngine = ({ initialScript }: RepurposeEngineProps) => {
       <Card>
         <CardContent className="flex h-[400px] items-center justify-center">
           <div className="text-center text-muted-foreground">
-            <p className="mb-2">No script to repurpose yet</p>
-            <p className="text-sm">Generate a script first, then come back here to adapt it for all platforms.</p>
+            <p className="mb-2">No content to repurpose yet</p>
+            <p className="text-sm">Generate content first, then come back here to adapt it for all platforms.</p>
           </div>
         </CardContent>
       </Card>
@@ -125,7 +139,7 @@ const RepurposeEngine = ({ initialScript }: RepurposeEngineProps) => {
           <div className="text-center">
             <Loader2 className="mx-auto mb-4 h-8 w-8 animate-spin text-primary" />
             <p className="font-medium">Repurposing your content...</p>
-            <p className="text-sm text-muted-foreground">Adapting for YouTube, Shorts, TikTok & Instagram</p>
+            <p className="text-sm text-muted-foreground">Adapting for YouTube, Shorts, TikTok, Instagram & LinkedIn</p>
           </div>
         </CardContent>
       </Card>
@@ -137,7 +151,7 @@ const RepurposeEngine = ({ initialScript }: RepurposeEngineProps) => {
       <Card>
         <CardContent className="flex h-[400px] items-center justify-center">
           <Button onClick={handleRepurpose}>
-            Repurpose Script for All Platforms
+            Repurpose Content for All Platforms
           </Button>
         </CardContent>
       </Card>
@@ -149,6 +163,7 @@ const RepurposeEngine = ({ initialScript }: RepurposeEngineProps) => {
     { id: "shorts", name: "Shorts", icon: <Youtube className="h-4 w-4" />, data: repurposedContent.youtubeShorts },
     { id: "tiktok", name: "TikTok", icon: <TikTokIcon />, data: repurposedContent.tiktok },
     { id: "instagram", name: "Instagram", icon: <Instagram className="h-4 w-4" />, data: repurposedContent.instagram },
+    { id: "linkedin", name: "LinkedIn", icon: <Briefcase className="h-4 w-4" />, data: repurposedContent.linkedin },
   ];
 
   return (
@@ -156,7 +171,7 @@ const RepurposeEngine = ({ initialScript }: RepurposeEngineProps) => {
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold">Repurposed Content</h3>
-          <p className="text-sm text-muted-foreground">Your script adapted for each platform</p>
+          <p className="text-sm text-muted-foreground">Your content adapted for each platform</p>
         </div>
         <Button onClick={handleSaveToLibrary} disabled={isSaving}>
           {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
@@ -165,7 +180,7 @@ const RepurposeEngine = ({ initialScript }: RepurposeEngineProps) => {
       </div>
 
       <Tabs defaultValue="youtube" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           {platforms.map((p) => (
             <TabsTrigger key={p.id} value={p.id} className="flex items-center gap-1.5">
               {p.icon}
@@ -197,11 +212,13 @@ const RepurposeEngine = ({ initialScript }: RepurposeEngineProps) => {
                     <p className="text-sm">{platform.data.hook}</p>
                   </div>
                 )}
-                {platform.data?.script && (
+                {(platform.data?.script || platform.data?.content || platform.data?.post) && (
                   <div>
-                    <h4 className="mb-1 text-sm font-medium text-muted-foreground">Script</h4>
+                    <h4 className="mb-1 text-sm font-medium text-muted-foreground">Content</h4>
                     <div className="max-h-[200px] overflow-y-auto rounded-md bg-muted/50 p-3">
-                      <p className="whitespace-pre-wrap text-sm">{platform.data.script}</p>
+                      <p className="whitespace-pre-wrap text-sm">
+                        {platform.data.script || platform.data.content || platform.data.post}
+                      </p>
                     </div>
                   </div>
                 )}
@@ -238,14 +255,17 @@ const RepurposeEngine = ({ initialScript }: RepurposeEngineProps) => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => handleCopy(platform.name, platform.data?.script || "")}
+                  onClick={() => handleCopy(
+                    platform.name, 
+                    platform.data?.script || platform.data?.content || platform.data?.post || ""
+                  )}
                 >
                   {copiedPlatform === platform.name ? (
                     <Check className="mr-1 h-4 w-4" />
                   ) : (
                     <Copy className="mr-1 h-4 w-4" />
                   )}
-                  {copiedPlatform === platform.name ? "Copied" : "Copy Script"}
+                  {copiedPlatform === platform.name ? "Copied" : "Copy Content"}
                 </Button>
               </CardContent>
             </Card>
