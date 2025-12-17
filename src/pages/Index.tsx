@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Sparkles } from "lucide-react";
+import { Sparkles, CalendarDays } from "lucide-react";
 import ContentGenerator from "@/components/ContentGenerator";
 import RepurposeEngine from "@/components/RepurposeEngine";
 import ContentLibrary from "@/components/ContentLibrary";
+import ContentCalendar from "@/components/ContentCalendar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Index = () => {
@@ -36,9 +37,13 @@ const Index = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full max-w-md grid-cols-3">
+          <TabsList className="grid w-full max-w-lg grid-cols-4">
             <TabsTrigger value="generate">Generate</TabsTrigger>
             <TabsTrigger value="repurpose">Repurpose</TabsTrigger>
+            <TabsTrigger value="calendar" className="flex items-center gap-1">
+              <CalendarDays className="h-4 w-4" />
+              <span className="hidden sm:inline">Calendar</span>
+            </TabsTrigger>
             <TabsTrigger value="library">Library</TabsTrigger>
           </TabsList>
 
@@ -48,6 +53,10 @@ const Index = () => {
 
           <TabsContent value="repurpose" className="space-y-6">
             <RepurposeEngine initialScript={generatedScript} />
+          </TabsContent>
+
+          <TabsContent value="calendar" className="space-y-6">
+            <ContentCalendar />
           </TabsContent>
 
           <TabsContent value="library" className="space-y-6">
