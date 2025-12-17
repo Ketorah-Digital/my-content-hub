@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, isToday } from "date-fns";
-import { ChevronLeft, ChevronRight, Youtube, Instagram, Clock, Copy, Check } from "lucide-react";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, isToday, getDay, getHours } from "date-fns";
+import { ChevronLeft, ChevronRight, Youtube, Instagram, Clock, Copy, Check, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -20,10 +20,19 @@ interface ScheduledContent {
   youtube_shorts_version: any;
   tiktok_version: any;
   instagram_version: any;
+  linkedin_version: any;
   status: string;
   scheduled_for: string | null;
   platform: string | null;
   created_at: string;
+}
+
+interface OptimalTime {
+  id: string;
+  platform: string;
+  day_of_week: number;
+  hour: number;
+  engagement_score: number;
 }
 
 const TikTokIcon = () => (
@@ -37,6 +46,7 @@ const platformIcons: Record<string, React.ReactNode> = {
   shorts: <Youtube className="h-3.5 w-3.5" />,
   tiktok: <TikTokIcon />,
   instagram: <Instagram className="h-3.5 w-3.5" />,
+  linkedin: <span className="text-xs font-bold">in</span>,
 };
 
 const platformColors: Record<string, string> = {
@@ -44,15 +54,18 @@ const platformColors: Record<string, string> = {
   shorts: "bg-red-500/20 text-red-600 border-red-500/30",
   tiktok: "bg-zinc-500/20 text-zinc-600 border-zinc-500/30",
   instagram: "bg-pink-500/20 text-pink-600 border-pink-500/30",
+  linkedin: "bg-blue-500/20 text-blue-600 border-blue-500/30",
 };
+
+const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const ContentCalendar = () => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [scheduledContent, setScheduledContent] = useState<ScheduledContent[]>([]);
   const [unscheduledContent, setUnscheduledContent] = useState<ScheduledContent[]>([]);
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-  const [selectedContent, setSelectedContent] = useState<ScheduledContent | null>(null);
+  const [optimalTimes, setOptimalTimes] = useState<OptimalTime[]>([]);
   const [copied, setCopied] = useState(false);
+  const [platformFilter, setPlatformFilter] = useState<string>("all");
   const { toast } = useToast();
 
   const fetchContent = async () => {
@@ -79,9 +92,39 @@ const ContentCalendar = () => {
     }
   };
 
+  const fetchOptimalTimes = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("optimal_posting_times")
+        .select("*");
+
+      if (error) throw error;
+      setOptimalTimes(data || []);
+    } catch (error: any) {
+      console.error("Failed to fetch optimal times:", error);
+    }
+  };
+
   useEffect(() => {
     fetchContent();
+    fetchOptimalTimes();
   }, []);
+
+  const getBestTimesForDay = (dayOfWeek: number, platform?: string) => {
+    return optimalTimes
+      .filter(t => t.day_of_week === dayOfWeek && (!platform || platform === "all" || t.platform === platform))
+      .sort((a, b) => b.engagement_score - a.engagement_score)
+      .slice(0, 3);
+  };
+
+  const getEngagementScoreForDay = (dayOfWeek: number) => {
+    const times = optimalTimes.filter(t => 
+      t.day_of_week === dayOfWeek && 
+      (platformFilter === "all" || t.platform === platformFilter)
+    );
+    if (times.length === 0) return 0;
+    return Math.round(times.reduce((sum, t) => sum + t.engagement_score, 0) / times.length);
+  };
 
   const scheduleContent = async (contentId: string, date: Date, platform: string) => {
     try {
@@ -145,152 +188,230 @@ const ContentCalendar = () => {
 
   const getContentForDay = (day: Date) => {
     return scheduledContent.filter((c) => 
-      c.scheduled_for && isSameDay(new Date(c.scheduled_for), day)
+      c.scheduled_for && isSameDay(new Date(c.scheduled_for), day) &&
+      (platformFilter === "all" || c.platform === platformFilter)
     );
   };
 
   const firstDayOfMonth = startOfMonth(currentMonth).getDay();
   const emptyDays = Array(firstDayOfMonth).fill(null);
 
+  // Get best times for current week
+  const today = new Date();
+  const currentDayOfWeek = getDay(today);
+  const weekBestTimes = DAYS.map((_, i) => ({
+    day: DAYS[i],
+    times: getBestTimesForDay(i, platformFilter),
+    score: getEngagementScoreForDay(i)
+  }));
+
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
-      {/* Calendar Grid */}
+    <div className="space-y-6">
+      {/* Best Posting Times Panel */}
       <Card>
-        <CardHeader className="pb-4">
+        <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle>Content Calendar</CardTitle>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <span className="min-w-[140px] text-center font-medium">
-                {format(currentMonth, "MMMM yyyy")}
-              </span>
-              <Button variant="outline" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
+              <Sparkles className="h-5 w-5 text-primary" />
+              <CardTitle className="text-base">Best Posting Times This Week</CardTitle>
             </div>
+            <Select value={platformFilter} onValueChange={setPlatformFilter}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="Platform" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Platforms</SelectItem>
+                <SelectItem value="youtube">YouTube</SelectItem>
+                <SelectItem value="tiktok">TikTok</SelectItem>
+                <SelectItem value="instagram">Instagram</SelectItem>
+                <SelectItem value="linkedin">LinkedIn</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardHeader>
         <CardContent>
-          {/* Weekday Headers */}
-          <div className="grid grid-cols-7 gap-1 mb-2">
-            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-              <div key={day} className="text-center text-xs font-medium text-muted-foreground py-2">
-                {day}
+          <div className="grid grid-cols-7 gap-2">
+            {weekBestTimes.map((dayData, i) => (
+              <div 
+                key={i} 
+                className={cn(
+                  "rounded-lg border p-2 text-center",
+                  i === currentDayOfWeek && "border-primary bg-primary/5"
+                )}
+              >
+                <div className="text-xs font-medium text-muted-foreground">{dayData.day}</div>
+                <div 
+                  className={cn(
+                    "mt-1 text-lg font-bold",
+                    dayData.score >= 80 ? "text-green-600" :
+                    dayData.score >= 60 ? "text-yellow-600" :
+                    "text-muted-foreground"
+                  )}
+                >
+                  {dayData.score}
+                </div>
+                <div className="mt-1 space-y-0.5">
+                  {dayData.times.slice(0, 2).map((time, j) => (
+                    <div key={j} className="text-[10px] text-muted-foreground">
+                      {time.hour}:00 ({time.platform})
+                    </div>
+                  ))}
+                </div>
               </div>
             ))}
           </div>
+        </CardContent>
+      </Card>
 
-          {/* Calendar Days */}
-          <div className="grid grid-cols-7 gap-1">
-            {emptyDays.map((_, i) => (
-              <div key={`empty-${i}`} className="aspect-square" />
-            ))}
-            {days.map((day) => {
-              const dayContent = getContentForDay(day);
-              return (
-                <Dialog key={day.toISOString()}>
-                  <DialogTrigger asChild>
-                    <button
-                      className={cn(
-                        "aspect-square rounded-lg border border-border/50 p-1 text-left transition-colors hover:bg-muted/50",
-                        isToday(day) && "border-primary bg-primary/5",
-                        dayContent.length > 0 && "bg-muted/30"
-                      )}
-                    >
-                      <span className={cn(
-                        "text-xs font-medium",
-                        isToday(day) && "text-primary"
-                      )}>
-                        {format(day, "d")}
-                      </span>
-                      <div className="mt-1 space-y-0.5">
-                        {dayContent.slice(0, 2).map((content) => (
-                          <div
-                            key={content.id}
-                            className={cn(
-                              "flex items-center gap-1 rounded px-1 py-0.5 text-[10px] truncate border",
-                              platformColors[content.platform || "youtube"]
-                            )}
-                          >
-                            {platformIcons[content.platform || "youtube"]}
-                            <span className="truncate">{content.topic}</span>
-                          </div>
-                        ))}
-                        {dayContent.length > 2 && (
-                          <span className="text-[10px] text-muted-foreground">+{dayContent.length - 2} more</span>
+      <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
+        {/* Calendar Grid */}
+        <Card>
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <CardTitle>Content Calendar</CardTitle>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="min-w-[140px] text-center font-medium">
+                  {format(currentMonth, "MMMM yyyy")}
+                </span>
+                <Button variant="outline" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-7 gap-1 mb-2">
+              {DAYS.map((day) => (
+                <div key={day} className="text-center text-xs font-medium text-muted-foreground py-2">
+                  {day}
+                </div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-7 gap-1">
+              {emptyDays.map((_, i) => (
+                <div key={`empty-${i}`} className="aspect-square" />
+              ))}
+              {days.map((day) => {
+                const dayContent = getContentForDay(day);
+                const dayOfWeek = getDay(day);
+                const engagementScore = getEngagementScoreForDay(dayOfWeek);
+                
+                return (
+                  <Dialog key={day.toISOString()}>
+                    <DialogTrigger asChild>
+                      <button
+                        className={cn(
+                          "aspect-square rounded-lg border border-border/50 p-1 text-left transition-colors hover:bg-muted/50 relative",
+                          isToday(day) && "border-primary bg-primary/5",
+                          dayContent.length > 0 && "bg-muted/30"
                         )}
-                      </div>
-                    </button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-md">
-                    <DialogHeader>
-                      <DialogTitle>{format(day, "EEEE, MMMM d")}</DialogTitle>
-                      <DialogDescription>
-                        {dayContent.length} {dayContent.length === 1 ? "item" : "items"} scheduled
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-3 max-h-[60vh] overflow-y-auto">
-                      {dayContent.length === 0 ? (
-                        <p className="text-sm text-muted-foreground text-center py-4">No content scheduled for this day</p>
-                      ) : (
-                        dayContent.map((content) => (
-                          <div key={content.id} className="rounded-lg border p-3 space-y-2">
-                            <div className="flex items-start justify-between gap-2">
-                              <div>
-                                <p className="font-medium text-sm">{content.topic}</p>
-                                <Badge variant="outline" className={cn("mt-1", platformColors[content.platform || "youtube"])}>
-                                  {platformIcons[content.platform || "youtube"]}
-                                  <span className="ml-1 capitalize">{content.platform}</span>
-                                </Badge>
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className={cn(
+                            "text-xs font-medium",
+                            isToday(day) && "text-primary"
+                          )}>
+                            {format(day, "d")}
+                          </span>
+                          {engagementScore >= 70 && (
+                            <div className={cn(
+                              "w-2 h-2 rounded-full",
+                              engagementScore >= 80 ? "bg-green-500" : "bg-yellow-500"
+                            )} />
+                          )}
+                        </div>
+                        <div className="mt-1 space-y-0.5">
+                          {dayContent.slice(0, 2).map((content) => (
+                            <div
+                              key={content.id}
+                              className={cn(
+                                "flex items-center gap-1 rounded px-1 py-0.5 text-[10px] truncate border",
+                                platformColors[content.platform || "youtube"]
+                              )}
+                            >
+                              {platformIcons[content.platform || "youtube"]}
+                              <span className="truncate">{content.topic}</span>
+                            </div>
+                          ))}
+                          {dayContent.length > 2 && (
+                            <span className="text-[10px] text-muted-foreground">+{dayContent.length - 2} more</span>
+                          )}
+                        </div>
+                      </button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>{format(day, "EEEE, MMMM d")}</DialogTitle>
+                        <DialogDescription>
+                          {dayContent.length} {dayContent.length === 1 ? "item" : "items"} scheduled
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+                        {dayContent.length === 0 ? (
+                          <p className="text-sm text-muted-foreground text-center py-4">No content scheduled for this day</p>
+                        ) : (
+                          dayContent.map((content) => (
+                            <div key={content.id} className="rounded-lg border p-3 space-y-2">
+                              <div className="flex items-start justify-between gap-2">
+                                <div>
+                                  <p className="font-medium text-sm">{content.topic}</p>
+                                  <Badge variant="outline" className={cn("mt-1", platformColors[content.platform || "youtube"])}>
+                                    {platformIcons[content.platform || "youtube"]}
+                                    <span className="ml-1 capitalize">{content.platform}</span>
+                                  </Badge>
+                                </div>
+                                <Button variant="ghost" size="sm" onClick={() => unscheduleContent(content.id)}>
+                                  Unschedule
+                                </Button>
                               </div>
-                              <Button variant="ghost" size="sm" onClick={() => unscheduleContent(content.id)}>
-                                Unschedule
+                              <p className="text-xs text-muted-foreground line-clamp-2">{content.original_script}</p>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="w-full"
+                                onClick={() => handleCopy(content.original_script)}
+                              >
+                                {copied ? <Check className="mr-1 h-3 w-3" /> : <Copy className="mr-1 h-3 w-3" />}
+                                Copy Script
                               </Button>
                             </div>
-                            <p className="text-xs text-muted-foreground line-clamp-2">{content.original_script}</p>
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              className="w-full"
-                              onClick={() => handleCopy(content.original_script)}
-                            >
-                              {copied ? <Check className="mr-1 h-3 w-3" /> : <Copy className="mr-1 h-3 w-3" />}
-                              Copy Script
-                            </Button>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+                          ))
+                        )}
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
 
-      {/* Unscheduled Content Sidebar */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Ready to Schedule</CardTitle>
-          <CardDescription>{unscheduledContent.length} items</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {unscheduledContent.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">All content is scheduled!</p>
-          ) : (
-            unscheduledContent.map((content) => (
-              <ScheduleCard 
-                key={content.id} 
-                content={content} 
-                onSchedule={scheduleContent}
-              />
-            ))
-          )}
-        </CardContent>
-      </Card>
+        {/* Unscheduled Content Sidebar */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Ready to Schedule</CardTitle>
+            <CardDescription>{unscheduledContent.length} items</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {unscheduledContent.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">All content is scheduled!</p>
+            ) : (
+              unscheduledContent.map((content) => (
+                <ScheduleCard 
+                  key={content.id} 
+                  content={content} 
+                  onSchedule={scheduleContent}
+                  optimalTimes={optimalTimes}
+                />
+              ))
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };
@@ -298,9 +419,10 @@ const ContentCalendar = () => {
 interface ScheduleCardProps {
   content: ScheduledContent;
   onSchedule: (contentId: string, date: Date, platform: string) => void;
+  optimalTimes: OptimalTime[];
 }
 
-const ScheduleCard = ({ content, onSchedule }: ScheduleCardProps) => {
+const ScheduleCard = ({ content, onSchedule, optimalTimes }: ScheduleCardProps) => {
   const [date, setDate] = useState<Date | undefined>(undefined);
   const [platform, setPlatform] = useState<string>("youtube");
   const [open, setOpen] = useState(false);
@@ -312,6 +434,18 @@ const ScheduleCard = ({ content, onSchedule }: ScheduleCardProps) => {
       setDate(undefined);
     }
   };
+
+  // Get best time suggestion for selected date and platform
+  const getBestTimeForSelected = () => {
+    if (!date) return null;
+    const dayOfWeek = getDay(date);
+    const times = optimalTimes
+      .filter(t => t.day_of_week === dayOfWeek && t.platform === platform)
+      .sort((a, b) => b.engagement_score - a.engagement_score);
+    return times[0];
+  };
+
+  const bestTime = getBestTimeForSelected();
 
   return (
     <div className="rounded-lg border p-3 space-y-2">
@@ -346,6 +480,9 @@ const ScheduleCard = ({ content, onSchedule }: ScheduleCardProps) => {
                   <SelectItem value="instagram">
                     <span className="flex items-center gap-2"><Instagram className="h-4 w-4" /> Instagram</span>
                   </SelectItem>
+                  <SelectItem value="linkedin">
+                    <span className="flex items-center gap-2 font-bold">in LinkedIn</span>
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -357,6 +494,12 @@ const ScheduleCard = ({ content, onSchedule }: ScheduleCardProps) => {
               initialFocus
               className="pointer-events-auto rounded-md border"
             />
+            {bestTime && (
+              <div className="text-xs text-muted-foreground bg-muted/50 rounded p-2">
+                <Sparkles className="h-3 w-3 inline mr-1" />
+                Best time: {bestTime.hour}:00 (score: {bestTime.engagement_score})
+              </div>
+            )}
             <Button 
               onClick={handleSchedule} 
               disabled={!date}
