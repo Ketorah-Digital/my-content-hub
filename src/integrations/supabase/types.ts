@@ -20,6 +20,8 @@ export type Database = {
           id: string
           instagram_version: Json | null
           original_script: string
+          platform: string | null
+          scheduled_for: string | null
           status: string
           tiktok_version: Json | null
           topic: string
@@ -32,6 +34,8 @@ export type Database = {
           id?: string
           instagram_version?: Json | null
           original_script: string
+          platform?: string | null
+          scheduled_for?: string | null
           status?: string
           tiktok_version?: Json | null
           topic: string
@@ -44,6 +48,8 @@ export type Database = {
           id?: string
           instagram_version?: Json | null
           original_script?: string
+          platform?: string | null
+          scheduled_for?: string | null
           status?: string
           tiktok_version?: Json | null
           topic?: string
