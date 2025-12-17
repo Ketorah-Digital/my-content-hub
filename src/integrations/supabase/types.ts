@@ -16,46 +16,207 @@ export type Database = {
     Tables: {
       content: {
         Row: {
+          blog_version: Json | null
+          carousel_version: Json | null
+          content_type: string
           created_at: string
           id: string
           instagram_version: Json | null
+          linkedin_version: Json | null
+          newsletter_version: Json | null
           original_script: string
           platform: string | null
           scheduled_for: string | null
           status: string
+          thread_version: Json | null
           tiktok_version: Json | null
           topic: string
           updated_at: string
+          user_id: string | null
           youtube_shorts_version: Json | null
           youtube_version: Json | null
         }
         Insert: {
+          blog_version?: Json | null
+          carousel_version?: Json | null
+          content_type?: string
           created_at?: string
           id?: string
           instagram_version?: Json | null
+          linkedin_version?: Json | null
+          newsletter_version?: Json | null
           original_script: string
           platform?: string | null
           scheduled_for?: string | null
           status?: string
+          thread_version?: Json | null
           tiktok_version?: Json | null
           topic: string
           updated_at?: string
+          user_id?: string | null
           youtube_shorts_version?: Json | null
           youtube_version?: Json | null
         }
         Update: {
+          blog_version?: Json | null
+          carousel_version?: Json | null
+          content_type?: string
           created_at?: string
           id?: string
           instagram_version?: Json | null
+          linkedin_version?: Json | null
+          newsletter_version?: Json | null
           original_script?: string
           platform?: string | null
           scheduled_for?: string | null
           status?: string
+          thread_version?: Json | null
           tiktok_version?: Json | null
           topic?: string
           updated_at?: string
+          user_id?: string | null
           youtube_shorts_version?: Json | null
           youtube_version?: Json | null
+        }
+        Relationships: []
+      }
+      optimal_posting_times: {
+        Row: {
+          day_of_week: number
+          engagement_score: number
+          hour: number
+          id: string
+          platform: string
+        }
+        Insert: {
+          day_of_week: number
+          engagement_score?: number
+          hour: number
+          id?: string
+          platform: string
+        }
+        Update: {
+          day_of_week?: number
+          engagement_score?: number
+          hour?: number
+          id?: string
+          platform?: string
+        }
+        Relationships: []
+      }
+      post_queue: {
+        Row: {
+          content_id: string
+          created_at: string
+          error_message: string | null
+          id: string
+          platform: string
+          posted_at: string | null
+          scheduled_time: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          content_id: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          platform: string
+          posted_at?: string | null
+          scheduled_time: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          content_id?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          platform?: string
+          posted_at?: string | null
+          scheduled_time?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_queue_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "content"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      social_connections: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          platform: string
+          updated_at: string
+          user_id: string
+          webhook_url: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          platform: string
+          updated_at?: string
+          user_id: string
+          webhook_url: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          platform?: string
+          updated_at?: string
+          user_id?: string
+          webhook_url?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
         }
         Relationships: []
       }
@@ -64,10 +225,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -194,6 +361,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user"],
+    },
   },
 } as const
