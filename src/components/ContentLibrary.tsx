@@ -25,6 +25,8 @@ interface ContentItem {
   youtube_shorts_version: any;
   tiktok_version: any;
   instagram_version: any;
+  facebook_version:  any;
+  pinterest_version:  any;
   status: string;
   created_at: string;
 }
