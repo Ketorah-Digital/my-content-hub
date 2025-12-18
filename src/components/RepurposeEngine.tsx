@@ -94,6 +94,8 @@ const RepurposeEngine = ({ initialScript }: RepurposeEngineProps) => {
         tiktok_version: repurposedContent.tiktok,
         instagram_version: repurposedContent.instagram,
         linkedin_version: repurposedContent.linkedin,
+        facebook_version:  repurposedContent.facebook,
+        pinterest_version:  repurposedContent.pinterest,
         blog_version: repurposedContent.blog,
         carousel_version: repurposedContent.carousel,
         thread_version: repurposedContent.thread,
